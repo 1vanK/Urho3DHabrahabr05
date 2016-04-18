@@ -1,0 +1,10 @@
+<material>
+    <technique name="Techniques/DiffNormalSpecEmissive.xml" />
+    <texture name="Textures/abaddon_mount_color.tga" unit="diffuse" />
+    <texture name="Textures/abaddon_mount_normal.tga" unit="normal" />
+    <texture name="Textures/abaddon_mount_specmask.tga" unit="specular" />
+    <texture name="Textures/abaddon_mount_selfillummask.tga" unit="emissive" />
+    <parameter name="MatDiffColor" value="1 1 1 1" />
+    <parameter name="MatSpecColor" value="5 5 5 50" />
+    <parameter name="MatEmissiveColor" value="1 1 1" />
+</material>
