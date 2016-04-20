@@ -37,8 +37,8 @@ varying vec4 vWorldPos;
     #endif
 #endif
 
-// Значения юниформ (внешних переменных) задаются в xml-файле материала.
-// Эти переменные нам нужны только в пиксельном шейдере.
+// Значения юниформ (внешних констант) задаются в xml-файле материала.
+// Они нам потребуются только в пиксельном шейдере.
 #ifdef COMPILEPS
     uniform float cRimPower;
     uniform vec3 cRimColor;
@@ -182,38 +182,9 @@ void PS()
             gl_FragColor = vec4(GetLitFog(finalColor, fogFactor), diffColor.a);
         #endif
     #elif defined(PREPASS)
-        // Fill light pre-pass G-Buffer
-        float specPower = cMatSpecColor.a / 255.0;
-
-        gl_FragData[0] = vec4(normal * 0.5 + 0.5, specPower);
-        gl_FragData[1] = vec4(EncodeDepth(vWorldPos.w), 0.0);
+        // Удалено
     #elif defined(DEFERRED)
-        // Fill deferred G-buffer
-        float specIntensity = specColor.g;
-        float specPower = cMatSpecColor.a / 255.0;
-
-        vec3 finalColor = vVertexLight * diffColor.rgb;
-        #ifdef AO
-            // If using AO, the vertex light ambient is black, calculate occluded ambient here
-            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * cAmbientColor * diffColor.rgb;
-        #endif
-
-        #ifdef ENVCUBEMAP
-            finalColor += cMatEnvMapColor * textureCube(sEnvCubeMap, reflect(vReflectionVec, normal)).rgb;
-        #endif
-        #ifdef LIGHTMAP
-            finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * diffColor.rgb;
-        #endif
-        #ifdef EMISSIVEMAP
-            finalColor += cMatEmissiveColor * texture2D(sEmissiveMap, vTexCoord.xy).rgb;
-        #else
-            finalColor += cMatEmissiveColor;
-        #endif
-
-        gl_FragData[0] = vec4(GetFog(finalColor, fogFactor), 1.0);
-        gl_FragData[1] = fogFactor * vec4(diffColor.rgb, specIntensity);
-        gl_FragData[2] = vec4(normal * 0.5 + 0.5, specPower);
-        gl_FragData[3] = vec4(EncodeDepth(vWorldPos.w), 0.0);
+        // Удалено
     #else
         // Ambient & per-vertex lighting
         vec3 finalColor = vVertexLight * diffColor.rgb;
@@ -223,12 +194,7 @@ void PS()
         #endif
         
         #ifdef MATERIAL
-            // Add light pre-pass accumulation result
-            // Lights are accumulated at half intensity. Bring back to full intensity now
-            vec4 lightInput = 2.0 * texture2DProj(sLightBuffer, vScreenPos);
-            vec3 lightSpecColor = lightInput.a * lightInput.rgb / max(GetIntensity(lightInput.rgb), 0.001);
-
-            finalColor += lightInput.rgb * diffColor.rgb + lightSpecColor * specColor;
+            // Удалено
         #endif
 
         #ifdef ENVCUBEMAP
@@ -238,30 +204,35 @@ void PS()
             finalColor += texture2D(sEmissiveMap, vTexCoord2).rgb * diffColor.rgb;
         #endif
         #ifdef EMISSIVEMAP
-            // Домножаем на диффузионный цвет.
+            // Домножаем на диффузный цвет.
             finalColor += cMatEmissiveColor * texture2D(sEmissiveMap, vTexCoord.xy).rgb * diffColor.rgb;
         #else
             finalColor += cMatEmissiveColor;
         #endif
         
-        #ifdef RIMLIGHT
-            // Направление = позиция камеры - позиция фрагмента.
-            vec3 viewDir = normalize(cCameraPosPS - vWorldPos.xyz);
+        // RIM LIGHT
+
+        // Направление = позиция камеры - позиция фрагмента.
+        vec3 viewDir = normalize(cCameraPosPS - vWorldPos.xyz);
+
+        // Скалярное произведение параллельных единичных векторов = 1.
+        // Скалярное произведение перпендикулярных векторов = 0.
+        // То есть, если представить шар, то его середина будет белой
+        // (так как нормаль параллельна линии взгляда), а к краям темнеть.
+        // Нам же наоборот нужны светлые края, поэтому скалярное произведение вычитается из единицы.
+        float rimFactor = 1.0 - clamp(dot(normal, viewDir), 0.0, 1.0);
             
-            // Скалярное произведение параллельных единичных векторов = 1.
-            // Скалярное произведение перпендикулярных векторов = 0.
-            // То есть, если представить шар, то его середина будет белой
-            // (так как нормаль параллельна линии взгляда), а к краям темнеть.
-            // Нам же наоборот нужны светлые края, поэтому скалярное произведение вычитается из единицы.
-            float rimFactor = 1.0 - clamp(dot(normal, viewDir), 0.0, 1.0);
-            
-            // Если cRimPower > 1, то подсветка сжимается к краям.
-            // Если cRimPower < 1, то подсветка наоборот становится более равномерной.
-            // При cRimPower = 0 вся модель будет равномерно окрашена, так как любое число в степени ноль = 1.
-            rimFactor = pow(rimFactor, cRimPower);
-            
+        // Если cRimPower > 1, то подсветка сжимается к краям.
+        // Если cRimPower < 1, то подсветка наоборот становится более равномерной.
+        // При cRimPower = 0 вся модель будет равномерно окрашена, так как любое число в степени ноль = 1.
+        rimFactor = pow(rimFactor, cRimPower);
+        
+        // Проверяем, нужно ли использовать карту подсветки.
+        #ifdef RIMMAP
             // Учитываем карту и цвет подсветки.
             finalColor += texture2D(sEnvMap, vTexCoord.xy).rgb * cRimColor * rimFactor;
+        #else
+            finalColor += cRimColor * rimFactor;
         #endif
 
         gl_FragColor = vec4(GetFog(finalColor, fogFactor), diffColor.a);
