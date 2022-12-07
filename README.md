@@ -1,3 +1,5 @@
+*Более актуальная версия находится тут: <https://github.com/urho3d-learn/materials>.*
+
 Файлы для статьи https://habrahabr.ru/post/281903/<br>
 Демка в папке Demo (сам скрипт Demo/MyData/Scripts/Main.as)
 
